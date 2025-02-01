@@ -12,4 +12,7 @@ bokeh serve --show gw.py
 ```
 ![alt text](screenshot.png)
 
+# To Do
+- [ ] Deploy it somewhere (for free)
+
 Inspired by Akshay Khadse's [interactivegw](https://interactivegw.com/)
