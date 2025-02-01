@@ -2,7 +2,7 @@
 An interactive Gravitational Wave strain plotter using Bokeh and PyCBC.
 
 # Usage
-To use Gstrain, you need to have PyCBC installed. If you don't have it installed, you can install the required packages by running the following command:
+To use Gstrain, install the required packages by running the following command:
 ```bash
 pip install -r requirements.txt
 ```
