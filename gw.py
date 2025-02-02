@@ -1,15 +1,25 @@
+import streamlit as st
+import plotly.graph_objects as go
 import numpy as np
-from bokeh.plotting import figure, curdoc
-from bokeh.layouts import column, row, layout
-from bokeh.models import Slider, ColumnDataSource, Select, Div
-from pycbc.waveform import get_td_waveform
+from PIL import Image
+
+from pycbc.waveform import get_td_waveform, td_approximants
 from pycbc.detector import Detector
 
-from pycbc.waveform import td_approximants
+im = Image.open("./images/gw.png")
+st.set_page_config(layout="wide", page_title="Gstrain", page_icon=im)
+st.set_option("client.showErrorDetails", True)
 
-TD_APPROXIMANTS = td_approximants()
-div = Div(
-    text="<h2><br><br>While using certain combination of parameters and approximants the plot may feel stuck, this is due to limited domain of these approximants (see your terminal of exact errors and refer to LALSimulation)</h2>", width=600)
+
+st.title("Gravitational Wave Strain Visualization")
+st.markdown("""
+    Gravitational Wave strain detected by different detectors.
+    Adjust the parameters using the sliders to see how they affect the waveform.
+""")
+
+
+if "TD_APPROXIMANTS" not in st.session_state:
+    st.session_state.TD_APPROXIMANTS = td_approximants()
 
 
 def generate_waveform(
@@ -28,7 +38,7 @@ def generate_waveform(
     polarization: float,
     delta_t: float = 1.0 / 4096,
     f_lower: float = 15,
-    detectors: list[str] = ["H1", "V1", "L1", "All"],
+    detectors: list[str] = ["H1", "V1", "L1"],
 ):
     m2 = 30.0
     m1 = q * m2
@@ -49,184 +59,119 @@ def generate_waveform(
         coa_phase=phi_ref,
     )
 
-    det_h1 = Detector("H1")
-    det_l1 = Detector("L1")
-    det_v1 = Detector("V1")
-
     all_waveforms = {}
 
     for det in detectors:
-        if det == "H1":
-            det_h1 = Detector("H1")
-            signal_h1 = det_h1.project_wave(hp, hc, ra, dec, polarization)
-            all_waveforms[det] = signal_h1
-        elif det == "L1":
-            det_l1 = Detector("L1")
-            signal_l1 = det_l1.project_wave(hp, hc, ra, dec, polarization)
-            all_waveforms[det] = signal_l1
-        elif det == "V1":
-            det_v1 = Detector("V1")
-            signal_v1 = det_v1.project_wave(hp, hc, ra, dec, polarization)
-            all_waveforms[det] = signal_v1
-        elif det == "All":
-            det_h1 = Detector("H1")
-            signal_h1 = det_h1.project_wave(hp, hc, ra, dec, polarization)
-            det_l1 = Detector("L1")
-            signal_l1 = det_l1.project_wave(hp, hc, ra, dec, polarization)
-            det_v1 = Detector("V1")
-            signal_v1 = det_v1.project_wave(hp, hc, ra, dec, polarization)
-            all_waveforms["H1"] = signal_h1
-            all_waveforms["L1"] = signal_l1
-            all_waveforms["V1"] = signal_v1
+        detector = Detector(det)
+        signal = detector.project_wave(hp, hc, ra, dec, polarization)
+        all_waveforms[det] = signal
 
     return hp.sample_times, all_waveforms
 
 
-times, all_waveforms = generate_waveform(
-    "IMRPhenomPv3", 2.4, 0, 0, 0, 0, 0, 0, 0, 0, 0.5, 0, 0
-)
+with st.sidebar:
+    st.header("Parameters")
 
-source = ColumnDataSource(
-    data={
-        "x": times,
-        "y1": all_waveforms["H1"],
-        "y2": all_waveforms["L1"],
-        "y3": all_waveforms["V1"],
-    }
-)
+    detector = st.selectbox("Detector", ["All", "H1", "L1", "V1"], index=0)
 
-p = figure(
-    title="Gravitational Wave Strain",
-    x_axis_label="Time (s)",
-    y_axis_label="Strain",
-    width=1500,
-    height=500,
-    x_range=(-0.4, 0.1),
-)
-p.title.text_font_size = '20pt'
-p.xaxis.axis_label_text_font_size = "15pt"
-p.yaxis.axis_label_text_font_size = "15pt"
-
-p.line("x", "y1", source=source, legend_label="H1", color="blue")
-p.line("x", "y2", source=source, legend_label="L1", color="red", line_dash="dashed")
-p.line("x", "y3", source=source, legend_label="V1", color="green", line_dash="dotted")
-
-
-q_slider = Slider(start=1.0, end=5.0, step=0.1, value=2.4, title="Mass Ratio (q)")
-chiAx_slider = Slider(
-    start=-1, end=1, step=0.05, value=0.0, title="Spin1 x-component $$\chi^1_x$$"
-)
-chiAy_slider = Slider(
-    start=-1, end=1, step=0.05, value=0, title=r"Spin1 y-component $$\chi^1_y$$"
-)
-chiAz_slider = Slider(
-    start=-1, end=1, step=0.05, value=0, title=r"Spin1 z-component $$\chi^1_z$$"
-)
-chiBx_slider = Slider(
-    start=-1, end=1, step=0.05, value=0, title=r"Spin2 x-component $$\chi^2_x$$"
-)
-chiBy_slider = Slider(
-    start=-1, end=1, step=0.05, value=0, title=r"Spin2 y-component $$\chi^2_y$$"
-)
-chiBz_slider = Slider(
-    start=-1, end=1, step=0.05, value=0, title=r"Spin2 z-component $$\chi^2_z$$"
-)
-iota_slider = Slider(
-    start=0, end=np.pi, step=np.pi / 18, value=0, title=r"Inclination $$\iota$$"
-)
-phi_ref_slider = Slider(
-    start=0,
-    end=np.pi,
-    step=np.pi / 18,
-    value=0,
-    title=r"Azimuthal Angle $$\phi_{ref}$$",
-)
-
-
-ra_slider = Slider(
-    start=0, end=2 * np.pi, step=0.01, value=0.5, title="Right Ascension (ra)"
-)
-dec_slider = Slider(
-    start=-np.pi / 2, end=np.pi / 2, step=0.01, value=0.0, title="Declination (dec)"
-)
-polarization_slider = Slider(
-    start=0, end=np.pi, step=0.01, value=0.0, title="Polarization Angle (polarization)"
-)
-
-
-detector_select = Select(
-    title="Detector", value="All", options=["H1", "L1", "V1", "All"]
-)
-approximant_select = Select(
-    title="Approximant",
-    value="IMRPhenomPv3",
-    options=TD_APPROXIMANTS,
-)
-
-
-def update(attr, old, new):
-    times, all_waveforms = generate_waveform(
-        approximant_select.value,
-        q_slider.value,
-        chiAx_slider.value,
-        chiAy_slider.value,
-        chiAz_slider.value,
-        chiBx_slider.value,
-        chiBy_slider.value,
-        chiBz_slider.value,
-        iota_slider.value,
-        phi_ref_slider.value,
-        ra_slider.value,
-        dec_slider.value,
-        polarization_slider.value,
+    approximant = st.selectbox(
+        "Approximant",
+        st.session_state.TD_APPROXIMANTS,
+        index=st.session_state.TD_APPROXIMANTS.index("IMRPhenomPv3"),
     )
 
-    p.legend.visible = False
-    if detector_select.value == "H1":
-        source.data = {"x": times, "y1": all_waveforms["H1"]}
-    elif detector_select.value == "L1":
-        source.data = {"x": times, "y1": all_waveforms["L1"]}
-    elif detector_select.value == "V1":
-        source.data = {"x": times, "y1": all_waveforms["V1"]}
+    q = st.slider("Mass Ratio (q)", 1.0, 5.0, 2.4, 0.1)
+    iota = st.slider(r"Inclination $$(\iota)$$", 0.0, np.pi, 0.0, np.pi / 18)
+    phi_ref = st.slider(
+        r"Azimuthal Angle $$(\phi_{\rm{ref}})$$", 0.0, np.pi, 0.0, np.pi / 18
+    )
+
+    st.subheader("Spin Parameters")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Spin 1**")
+        chiAx = st.slider(r"$$\chi^1_x$$", -1.0, 1.0, 0.0, 0.05)
+        chiAy = st.slider(r"$$\chi^1_y$$", -1.0, 1.0, 0.0, 0.05)
+        chiAz = st.slider(r"$$\chi^1_z$$", -1.0, 1.0, 0.0, 0.05)
+
+    with col2:
+        st.markdown("**Spin 2**")
+        chiBx = st.slider(r"$$\chi^2_x$$", -1.0, 1.0, 0.0, 0.05)
+        chiBy = st.slider(r"$$\chi^2_y$$", -1.0, 1.0, 0.0, 0.05)
+        chiBz = st.slider(r"$$\chi^2_z$$", -1.0, 1.0, 0.0, 0.05)
+
+    st.subheader("Source Location")
+    ra = st.slider("Right Ascension (ra)", 0.0, 2 * np.pi, 0.5, 0.01)
+    dec = st.slider("Declination (dec)", -np.pi / 2, np.pi / 2, 0.0, 0.01)
+    polarization = st.slider("Polarization Angle", 0.0, np.pi, 0.0, 0.01)
+
+
+try:
+    times, all_waveforms = generate_waveform(
+        approximant,
+        q,
+        chiAx,
+        chiAy,
+        chiAz,
+        chiBx,
+        chiBy,
+        chiBz,
+        iota,
+        phi_ref,
+        ra,
+        dec,
+        polarization,
+    )
+
+    fig = go.Figure()
+
+    if detector == "All":
+        fig.add_trace(
+            go.Scatter(
+                x=times, y=all_waveforms["H1"], name="H1", line=dict(color="blue")
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=times,
+                y=all_waveforms["L1"],
+                name="L1",
+                line=dict(color="red", dash="dash"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=times,
+                y=all_waveforms["V1"],
+                name="V1",
+                line=dict(color="green", dash="dot"),
+            )
+        )
     else:
-        source.data = {
-            "x": times,
-            "y1": all_waveforms["H1"],
-            "y2": all_waveforms["L1"],
-            "y3": all_waveforms["V1"],
-        }
-        p.legend.visible = True
+        fig.add_trace(go.Scatter(x=times, y=all_waveforms[detector], name=detector))
+
+    fig.update_layout(
+        title=dict(text="Gravitational Wave Strain", font=dict(size=24)),
+        xaxis_title=dict(text="Time (s)", font=dict(size=18)),
+        yaxis_title=dict(text="Strain", font=dict(size=18)),
+        xaxis=dict(range=[-0.4, 0.1]),
+        showlegend=detector == "All",
+        height=600,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+except Exception as e:
+    st.error("""
+        Error generating waveform. This might be due to:
+        1. Invalid parameter combination
+        2. Approximant limitations""")
+
+    st.exception(e)
 
 
-for slider in [
-    q_slider,
-    chiAx_slider,
-    chiAy_slider,
-    chiAz_slider,
-    chiBx_slider,
-    chiBy_slider,
-    chiBz_slider,
-    iota_slider,
-    phi_ref_slider,
-    ra_slider,
-    dec_slider,
-    polarization_slider,
-    detector_select,
-    approximant_select,
-]:
-    slider.on_change("value", update)
-
-sliders = column(
-    row(detector_select, approximant_select),
-    row(q_slider, iota_slider, phi_ref_slider),
-    row(chiAx_slider, chiAy_slider, chiAz_slider),
-    row(chiBx_slider, chiBy_slider, chiBz_slider),
-    row(ra_slider, dec_slider, polarization_slider),
-)
-
-web_layout = layout(
-    [p],
-    [sliders, div]
-)
-
-curdoc().add_root(web_layout)
+st.markdown("""
+    While using certain combinations of parameters and approximants, the plot may not generate due to limited domains of these approximants. 
+    Please refer to LALSimulation documentation for exact parameter ranges for each approximant.
+""")

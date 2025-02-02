@@ -10,7 +10,7 @@ Then you can run the following command to start the Bokeh server:
 ```bash
 bokeh serve --show gw.py
 ```
-![alt text](screenshot.png)
+![alt text](images/screenshot.png)
 
 # To Do
 - [ ] Deploy it somewhere (for free)
