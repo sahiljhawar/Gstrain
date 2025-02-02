@@ -6,3 +6,5 @@ There is no need to install anything, just visit [Gstrain](https://gstrain.strea
 
 # Note:
 If you like the Bokeh version and want to run it locally, check the `bokeh` branch.
+
+Inspired by Akshay Khadse's [interactivegw](https://interactivegw.com/)
